@@ -1,0 +1,2046 @@
+---
+title: "Pete Alonso 10/04/22 and Cumulative Hitting Report"
+output: 
+  pdf_document:
+    toc: true
+
+
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(baseballr)
+library(grid)
+library(gridExtra)
+
+x2022 <- read.csv('C:\\Users\\brkea\\Desktop\\2022_season_pitch_data.csv')
+
+x2022<-x2022[!(x2022$pitch_name %in% c('Eephus', 'Pitch Out', 'Other', 'Knuckleball', '')),]
+
+x2022$pitch_name[x2022$pitch_name %in% c('4-Seam Fastball', 'Sinker', 'Cutter')] <- 'Fastball'
+
+x2022$pitch_name[x2022$pitch_name %in% c('Changeup', 'Split-Finger')] <- 'Changeup'
+
+x2022$pitch_name[x2022$pitch_name %in% c('Knuckle Curve', 'Curveball', 'Slow Curve')] <- 'Curveball'
+
+x2022$pitch_name[x2022$pitch_name %in% c('Slider', 'Sweeper', 'Slurve')] <- 'Slider'
+
+everyone <- x2022
+
+x2022 <- x2022 %>% filter(player_name == 'Alonso, Pete')
+
+day <- x2022 %>% filter(game_date == '2022-10-04')
+
+#do like average whiff rate, and average swing tendencies as well
+#wOBA
+#where they are chasing and on what pitches 
+#show where they are getting pitched on certain counts. Break down by pitch type? and how succesful you are?
+
+```
+
+
+\newpage
+
+# Previous Game Report
+
+Pitch Location
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#pitch location
+ggplot(day, aes(x = plate_x, y = plate_z, color = pitch_name)) +
+      xlim(-3,3) + ylim(0,5) + labs(color = "", title = "Pitch Location") +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") + geom_segment(aes(x = -0.708, y = 0.15, xend = 0.708, yend = 0.15), size = 1, color = "black") + geom_segment(aes(x = -0.708, y = 0.3, xend = -0.708, yend = 0.15), size = 1, color = "black") + geom_segment(aes(x = -0.708, y = 0.3, xend = 0, yend = 0.5), size = 1, color = "black") + geom_segment(aes(x = 0, y = 0.5, xend = 0.708, yend = 0.3), size = 1, color = "black") + geom_segment(aes(x = 0.708, y = 0.3, xend = 0.708, yend = 0.15), size = 1, color = "black") + geom_point(size = 3, na.rm = TRUE) + theme_bw() + theme(plot.title = element_text(size = 16)) + theme(legend.position = "bottom", legend.text = element_text(size = 15), axis.title = element_blank())
+```       
+
+Whiff Plot
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#whiff plot
+#multiplying plate_x by -1 flips from catcher to pitcher perspectiv
+swinging <- day
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+ggplot(swinging, aes(x = plate_x, y = plate_z, shape = 'Contact')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Strikezone Whiff Plot", shape = 'Whiff or Contact') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+ #+ theme(axis.title = element_text(size = 13)))
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+```
+
+#### Whiff Results
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging <- day
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+table <- swinging %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Whiffs' = sum(description == 'Whiff'),
+            'Contact' = sum(description == 'Contact'))
+kable(table, caption = 'Whiff Data')
+
+```
+
+Swing Tendencies
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#swing tendency by pitch 
+swinging_or_not <- day
+swinging_or_not$description[swinging_or_not$description %in% c('ball', 'called_strike', 'blocked_ball') ] <- 'Take'
+
+swinging_or_not$description[swinging_or_not$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')] <- 'Swing'
+
+swinging_or_not<-swinging_or_not[!(swinging_or_not$description %in% c('hit_by_pitch')),]
+
+ggplot(swinging_or_not, aes(x = plate_x, y = plate_z, shape = 'Swing')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Swinging Tendency Chart By Pitch", shape = 'Swing') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+       # + theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))  
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+
+```
+
+#### Discipline Data
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging_or_not <- day
+swinging_or_not$description[swinging_or_not$description %in% c('ball', 'called_strike', 'blocked_ball') ] <- 'Take'
+
+swinging_or_not$description[swinging_or_not$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')] <- 'Swing'
+
+swinging_or_not<-swinging_or_not[!(swinging_or_not$description %in% c('hit_by_pitch')),]
+
+table <- swinging_or_not %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Swings' = sum(description == 'Swing'),
+            'Take' = sum(description == 'Take'))
+kable(table, caption = 'Discipline Data')
+
+```
+
+
+Fastball Plate Discipline
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#swing tendency - fastball
+swinging_or_not <- day
+swinging_or_not$description[swinging_or_not$description %in% c('ball', 'called_strike', 'blocked_ball') ] <- 'Take'
+
+swinging_or_not$description[swinging_or_not$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')] <- 'Swing'
+
+swinging_or_not<-swinging_or_not[!(swinging_or_not$description %in% c('hit_by_pitch')),]
+
+swinging_or_not <- swinging_or_not %>% filter(pitch_type == 'FF')
+
+ggplot(swinging_or_not, aes(x = plate_x, y = plate_z, shape = 'Swing')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Swinging Tendency Chart - Fastballs", shape = 'Swing') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+       # + theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))  
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+
+```
+
+#### Fastball Discipline Data
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging_or_not <- day
+swinging_or_not$description[swinging_or_not$description %in% c('ball', 'called_strike', 'blocked_ball') ] <- 'Take'
+
+swinging_or_not$description[swinging_or_not$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')] <- 'Swing'
+
+swinging_or_not<-swinging_or_not[!(swinging_or_not$description %in% c('hit_by_pitch')),]
+
+swinging_or_not <- swinging_or_not %>% filter(pitch_type == 'FF')
+
+table <- swinging_or_not %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Swings' = sum(description == 'Swing'),
+            'Take' = sum(description == 'Take'))
+kable(table, caption = ' Fastball Discipline Data')
+
+```
+
+Fastball Swing Results
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#swing results - fastballs
+swinging <- day
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked', "missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'In Play'
+
+swinging$description[swinging$description %in% c("foul", "bunt_foul_tip", "foul_bunt", "foul_tip")] <- 'Foul Ball'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+swinging <- swinging %>% filter(pitch_type == 'FF')
+
+ggplot(swinging, aes(x = plate_x, y = plate_z, shape = 'In Play')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Swing Results By Pitch - Fastballs", shape = 'Result') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+       # + theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))  
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+```
+
+#### Fastball Swing Data
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging <- day
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked', "missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'In Play'
+
+swinging$description[swinging$description %in% c("foul", "bunt_foul_tip", "foul_bunt", "foul_tip")] <- 'Foul Ball'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+swinging <- swinging %>% filter(pitch_type == 'FF')
+
+table <- swinging %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('In Play' = sum(description == 'In Play'),
+            'Whiff' = sum(description == 'Whiff'),
+            'Foul Ball' = sum(description == 'Foul Ball'))
+kable(table, caption = 'Fastball Swing Data')
+
+```
+
+Spin Pitches Plate Discipline
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#swing tendency - spin pitches
+swinging_or_not <- day
+swinging_or_not$description[swinging_or_not$description %in% c('ball', 'called_strike', 'blocked_ball') ] <- 'Take'
+
+swinging_or_not$description[swinging_or_not$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')] <- 'Swing'
+
+swinging_or_not<-swinging_or_not[!(swinging_or_not$description %in% c('hit_by_pitch')),]
+
+swinging_or_not <- swinging_or_not[!(swinging_or_not$pitch_type %in% c('FF')),]
+
+ggplot(swinging_or_not, aes(x = plate_x, y = plate_z, shape = 'Swing')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Swinging Tendency Chart - Spin Pitches", shape = 'Swing') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+       # + theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))  
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+
+```
+
+#### Spin Pitches Discipline Data
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging_or_not <- day
+swinging_or_not$description[swinging_or_not$description %in% c('ball', 'called_strike', 'blocked_ball') ] <- 'Take'
+
+swinging_or_not$description[swinging_or_not$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')] <- 'Swing'
+
+swinging_or_not<-swinging_or_not[!(swinging_or_not$description %in% c('hit_by_pitch')),]
+
+swinging_or_not <- swinging_or_not[!(swinging_or_not$pitch_type %in% c('FF')),]
+
+table <- swinging_or_not %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Swings' = sum(description == 'Swing'),
+            'Take' = sum(description == 'Take'))
+kable(table, caption = 'Spin Pitches Discipline Data')
+
+```
+
+Spin Pitches Swing Results
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#swing results - spin pitches
+swinging <- day
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked', "missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'In Play'
+
+swinging$description[swinging$description %in% c("foul", "bunt_foul_tip", "foul_bunt", "foul_tip")] <- 'Foul Ball'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike','hit_by_pitch')),]
+
+swinging <- swinging[!(swinging$pitch_type %in% c('FF')),]
+
+ggplot(swinging, aes(x = plate_x, y = plate_z)) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Swing Results By Pitch - Spin Pitches", shape = 'Result') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+       # + theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))  
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+```
+
+#### Spin Pitches Swing Data
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging <- day
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked', "missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'In Play'
+
+swinging$description[swinging$description %in% c("foul", "bunt_foul_tip", "foul_bunt", "foul_tip")] <- 'Foul Ball'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike','hit_by_pitch')),]
+
+swinging <- swinging[!(swinging$pitch_type %in% c('FF')),]
+
+table <- swinging %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('In Play' = sum(description == 'In Play'),
+            'Whiff' = sum(description == 'Whiff'),
+            'Foul Ball' = sum(description == 'Foul Ball'))
+kable(table, caption = 'Spin Pitches Swing Data')
+
+```
+
+Quality Contact
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#Quality of Contact by pitch
+swinging <- day
+
+swinging$description[swinging$description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'In Play'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", 'swinging_strike', 'swinging_strike_blocked', "missed_bunt",'hit_by_pitch')),]
+
+for(i in 1:length(swinging[,'launch_speed'])){
+  if(is.na(swinging$launch_speed[i])) {
+    swinging <- swinging[-c(i),]
+  }
+}
+
+for(i in 1:length(swinging[,'launch_speed'])){ 
+  if (swinging$launch_speed[i] >= 90 & swinging$launch_speed[i] < 98) {
+    swinging$launch_speed[i] <- 'Moderate Contact'
+  }
+
+  if (swinging$launch_speed[i] >= 98) {
+    swinging$launch_speed[i] <- 'Hard Contact'
+  }
+  
+  if (swinging$launch_speed[i] < 90) {
+    swinging$launch_speed[i] <- 'Soft Contact'
+  }
+  
+}
+
+ggplot(swinging, aes(x = plate_x, y = plate_z)) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Quality of Contact By Pitch", shape = 'Contact') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=launch_speed, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+       # + theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))  
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+```
+
+#### Quality Contact Data
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging <- day
+
+swinging$description[swinging$description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'In Play'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", 'swinging_strike', 'swinging_strike_blocked', "missed_bunt",'hit_by_pitch')),]
+
+for(i in 1:length(swinging[,'launch_speed'])){
+  if(is.na(swinging$launch_speed[i])) {
+    swinging <- swinging[-c(i),]
+  }
+}
+
+for(i in 1:length(swinging[,'launch_speed'])){ 
+  if (swinging$launch_speed[i] >= 90 & swinging$launch_speed[i] < 98) {
+    swinging$launch_speed[i] <- 'Moderate Contact'
+  }
+
+  if (swinging$launch_speed[i] >= 98) {
+    swinging$launch_speed[i] <- 'Hard Contact'
+  }
+  
+  if (swinging$launch_speed[i] < 90) {
+    swinging$launch_speed[i] <- 'Soft Contact'
+  }
+  
+}
+
+table <- swinging %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Hard Contact (98 and up)' = sum(launch_speed == 'Hard Contact'),
+            'Moderate Contact (90-97)' = sum(launch_speed == 'Moderate Contact'),
+            'Soft Contact (90 and below)' = sum(launch_speed == 'Soft Contact'))
+kable(table, caption = 'Quality Contact Data')
+
+```
+
+
+Chase Plot
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#whiff plot
+#multiplying plate_x by -1 flips from catcher to pitcher perspective
+swinging <- day
+
+swinging <- swinging %>% filter(zone %in% c('11', '12', '13', '14'))
+
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+ggplot(swinging, aes(x = plate_x, y = plate_z, shape = 'Contact')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Strikezone Whiff Plot", shape = 'Whiff or Contact') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+ #+ theme(axis.title = element_text(size = 13)))
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+```
+
+#### Chase Results
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging <- day
+
+swinging <- swinging %>% filter(zone %in% c('11', '12', '13', '14'))
+
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+table <- swinging %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Whiffs' = sum(description == 'Whiff'),
+            'Contact' = sum(description == 'Contact'))
+kable(table, caption = 'Whiff Data')
+
+```
+
+Success Against Speed Plot
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#whiff plot
+#multiplying plate_x by -1 flips from catcher to pitcher perspective
+swinging <- day
+swinging <- swinging %>% filter(release_speed >= 95)
+
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+ggplot(swinging, aes(x = plate_x, y = plate_z, shape = 'Contact')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Strikezone 95+ Plot", shape = 'Whiff or Contact') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+ #+ theme(axis.title = element_text(size = 13)))
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+```
+
+#### Speed Results
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging <- day
+
+swinging <- swinging %>% filter(release_speed >= 95)
+
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+table <- swinging %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Whiffs' = sum(description == 'Whiff'),
+            'Contact' = sum(description == 'Contact'),
+            'Contact%' = round(sum(description == 'Contact')/sum(description %in% c('Contact', 'Whiff')),3)*100,
+            'Hit%' = round(sum(events %in% c('single', 'double', 'triple', 'home_run'))/sum(description %in% c('Contact', 'Whiff')), 3)*100)
+kable(table, caption = 'Contact Data')
+
+```
+
+\newpage
+
+# Cumulative Report
+
+Zone Tendancy Report
+---
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+table1 <- x2022 %>%
+      group_by('Pitch' = pitch_name) %>%
+      summarize('Whiff %' = round(sum(description %in% c("swinging_strike", "swinging_strike_blocked"))/ sum(description %in% c("swinging_strike", "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", "swinging_strike_blocked")),3)*100,
+                
+                'Swing %' = round(sum(description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100,
+               )
+
+ball <- x2022 %>% filter(zone %in% c('11', '12', '13', '14'))
+
+table2 <- ball %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('O-Swing%' = round(sum(description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100, )
+
+strike <- x2022 %>% filter(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9'))
+
+table3 <- strike %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Z-Swing%' = round(sum(description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100, )
+
+table4 <- ball %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('O-Contact%' = round(sum(description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score","foul", "bunt_foul_tip", "foul_bunt", "foul_tip")) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+table5 <- strike %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Z-Contact%' = round(sum(description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score","foul", "bunt_foul_tip", "foul_bunt", "foul_tip")) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+table6 <- x2022 %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('InPlay%' = round(sum(description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+table7 <- x2022 %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Zone%' = round(sum(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9'))/sum(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9','11', '12', '13', '14')), 3) * 100, 
+              'SwStr%' = round(sum(description %in% c("missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+              
+table8 <- x2022 %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Foul%' = round(sum(description %in% c("foul", "bunt_foul_tip", "foul_bunt", "foul_tip"))/ sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100,
+              'InZonePitches' = sum(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9')),
+              'OutZonePitches' = sum(zone %in% c('11', '12', '13', '14')),
+              'TotalPitches' = n())
+  
+fpitch <- x2022 %>% filter(balls == 0, strikes == 0)
+
+table9 <- fpitch %>%
+    summarize('F-Strike%' = round(sum(description %in% c("missed_bunt", 'swinging_strike', 'swinging_strike_blocked', 'called_strike', 'foul', 'bunt_foul_tip', 'foul_tip'))/length(fpitch[,'description']), 3) * 100)
+
+
+walk <- x2022 %>% filter(balls == 3)
+
+BB <- 0
+for(sentence in walk[,'des']){
+  if(grepl('walk', sentence)) {
+    BB <- BB + 1
+  }
+}
+
+table10 <- walk %>%
+  summarise('BB%' = round(BB/length(fpitch[,'description']), 3) * 100)
+
+strikeout <- x2022 %>% filter(strikes == 2)
+
+k <- 0
+for(sentence in strikeout[,'des']){
+  if(grepl('strikes', sentence)) {
+    k <- k + 1
+  }
+}
+
+table11 <- strikeout %>%
+  summarise('K%' = round(k/length(fpitch[,'description']), 3) * 100)
+
+
+zonek <- strikeout[(strikeout$zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9')),]
+
+ZONEK <- 0
+for(sentence in zonek[,'des']){
+  if(grepl('strikes', sentence)) {
+    ZONEK <- ZONEK + 1
+  }
+}
+
+table12 <- strikeout %>%
+  summarise('Z-K%' = round(ZONEK/k, 3) * 100)
+
+
+
+table <- cbind(table1, table2, table3)
+table <- table[-c(4,6)]
+
+tables <- cbind(table4, table5, table6, table7)
+tables <- tables[-c(1,3,5,7)]
+
+table8 <- table8[-c(1)]
+                
+kable(table, caption = 'Zone Tendancy Report By Pitch (Continued Below)')
+      
+#, format = "latex", booktabs = TRUE) %>%
+#          kable_styling(full_width = T)
+
+kable(tables, caption = 'Continues Below')
+
+kable(table8, caption = '')
+
+sumtable <- cbind(table9, table10, table11, table12)
+kable(sumtable, caption = 'Zone Tendancy Summary')
+```
+
+\newpage
+
+League Average Zone Tendancy
+---
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+table1 <- everyone %>%
+      group_by('Pitch' = pitch_name) %>%
+      summarize('Whiff %' = round(sum(description %in% c("swinging_strike", "swinging_strike_blocked"))/ sum(description %in% c("swinging_strike", "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", "swinging_strike_blocked")),3)*100,
+                'Swing %' = round(sum(description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100,)
+
+ball <- everyone %>% filter(zone %in% c('11', '12', '13', '14'))
+
+table2 <- ball %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('O-Swing%' = round(sum(description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100, )
+
+strike <- everyone %>% filter(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9'))
+
+table3 <- strike %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Z-Swing%' = round(sum(description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100, )
+
+table4 <- ball %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('O-Contact%' = round(sum(description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score","foul", "bunt_foul_tip", "foul_bunt", "foul_tip")) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+table5 <- strike %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Z-Contact%' = round(sum(description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score","foul", "bunt_foul_tip", "foul_bunt", "foul_tip")) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+table6 <- everyone %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('InPlay%' = round(sum(description %in% c("hit_into_play", "hit_into_play_no_out","hit_into_play_score")) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+table7 <- everyone %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Zone%' = round(sum(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9'))/sum(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9','11', '12', '13', '14')), 3) * 100, 
+              'SwStr%' = round(sum(description %in% c("missed_bunt", 'swinging_strike', 'swinging_strike_blocked')) / sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100)
+
+              
+table8 <- everyone %>%
+    group_by('Pitch' = pitch_name) %>% 
+    summarize('Foul%' = round(sum(description %in% c("foul", "bunt_foul_tip", "foul_bunt", "foul_tip"))/ sum(description %in% c('ball', 'called_strike', 'blocked_ball', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score", "missed_bunt", 'swinging_strike', 'swinging_strike_blocked')),3) * 100,
+              'InZonePitches' = sum(zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9')),
+              'OutZonePitches' = sum(zone %in% c('11', '12', '13', '14')),
+              'TotalPitches' = n())
+  
+fpitch <- everyone %>% filter(balls == 0, strikes == 0)
+
+table9 <- fpitch %>%
+    summarize('F-Strike%' = round(sum(description %in% c("missed_bunt", 'swinging_strike', 'swinging_strike_blocked', 'called_strike', 'foul', 'bunt_foul_tip', 'foul_tip'))/length(fpitch[,'description']), 3) * 100)
+
+
+walk <- everyone %>% filter(balls == 3)
+
+BB <- 0
+for(sentence in walk[,'des']){
+  if(grepl('walk', sentence)) {
+    BB <- BB + 1
+  }
+}
+
+table10 <- walk %>%
+  summarise('BB%' = round(BB/length(fpitch[,'description']), 3) * 100)
+
+strikeout <- everyone %>% filter(strikes == 2)
+
+k <- 0
+for(sentence in strikeout[,'des']){
+  if(grepl('strikes', sentence)) {
+    k <- k + 1
+  }
+}
+
+table11 <- strikeout %>%
+  summarise('K%' = round(k/length(fpitch[,'description']), 3) * 100)
+
+
+zonek <- strikeout[(strikeout$zone %in% c('1', '2', '3', '4', '5', '6', '7', '8', '9')),]
+
+ZONEK <- 0
+for(sentence in zonek[,'des']){
+  if(grepl('strikes', sentence)) {
+    ZONEK <- ZONEK + 1
+  }
+}
+
+table12 <- strikeout %>%
+  summarise('Z-K%' = round(ZONEK/k, 3) * 100)
+
+
+
+table <- cbind(table1, table2, table3)
+table <- table[-c(4,6)]
+
+tables <- cbind(table4, table5, table6, table7)
+tables <- tables[-c(1,3,5,7)]
+
+table8 <- table8[-c(1)]
+                
+kable(table, caption = 'Zone Tendancy Report By Pitch (Continued Below)')
+      
+#, format = "latex", booktabs = TRUE) %>%
+#          kable_styling(full_width = T)
+
+kable(tables, caption = 'Continues Below')
+
+kable(table8, caption = '')
+
+sumtable <- cbind(table9, table10, table11, table12)
+kable(sumtable, caption = 'Zone Tendancy Summary')
+```
+
+
+BABIP Heat Map 
+---
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#Average (on balls in play?)
+
+#avg
+avg <- function(dataframe) {
+
+HBP <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('hit by pitch', sentence)) {
+    HBP <- HBP + 1
+  }
+}
+
+BB <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('walk', sentence)) {
+    BB <- BB + 1
+  }
+}
+  
+  
+single <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('singles', sentence)) {
+    single <- single + 1
+  }
+}
+
+double <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('doubles', sentence)) {
+    double <- double + 1
+  }
+}
+
+triple <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('triples', sentence)) {
+    triple <- triple + 1
+  }
+}
+
+homer <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('homers', sentence)) {
+    homer <- homer + 1
+  }
+}
+
+SF <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('sacrifice', sentence)) {
+    SF <- SF + 1
+  }
+}
+
+AVG <- (single + double + triple + homer)/(length(dataframe[,'des']) - SF - BB - HBP)
+
+AVG <- round(AVG, digits=3)
+
+return(AVG)
+
+}
+
+hit <- x2022
+
+hit<-hit[!(hit$description %in% c('ball', 'blocked_ball', 'called_strike', "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", 'swinging_strike', 'swinging_strike_blocked', "missed_bunt",'hit_by_pitch')),]
+
+#top left
+average1 <- hit %>% filter(plate_x < -0.277, plate_z > 2.83)
+avg1 <- avg(average1)
+
+
+#top middle
+average2 <- hit %>% filter(plate_x > -0.277, plate_x < 0.277, plate_z > 2.83)
+avg2 <- avg(average2)
+
+#top right
+average3 <- hit %>% filter(plate_x > 0.277, plate_z > 2.83)
+avg3 <- avg(average3)
+
+#middle left
+average4 <- hit %>% filter(plate_x < -0.277, plate_z < 2.83, plate_z > 2.167)
+avg4 <- avg(average4)
+
+#middle middle
+average5 <- hit %>% filter(plate_x > -0.277, plate_x < 0.277, plate_z < 2.83, plate_z > 2.167)
+avg5 <- avg(average5)
+
+#middle right
+average6 <- hit %>% filter(plate_x > 0.277, plate_z < 2.83, plate_z > 2.167)
+avg6 <- avg(average6)
+
+#bottom left
+average7 <- hit %>% filter(plate_x < -0.277, plate_z < 2.167)
+avg7 <- avg(average7)
+
+#bottom middle
+average8 <- hit %>% filter(plate_x > -0.277, plate_x < 0.277, plate_z < 2.167)
+avg8 <- avg(average8)
+
+#bottom right
+average9 <- hit %>% filter(plate_x > 0.277, plate_z < 2.167)
+avg9 <- avg(average9)
+
+
+
+strike_zone <- data.frame(
+  x1 = c(-0.83, -0.83, -0.83, -0.277, -0.277, -0.277, 0.277, 0.277, 0.277),
+  x2 = c(-0.277, -0.277, -0.277, 0.277, 0.277, 0.277, 0.83, 0.83, 0.83),
+  y1 = c(1.5, 2.167, 2.83, 1.5, 2.167, 2.83, 1.5, 2.167, 2.83),
+  y2 = c(2.167, 2.83, 3.5, 2.167, 2.83, 3.5, 2.167, 2.83, 3.5),
+  z = c(avg7,avg4,avg1,avg8,avg5,avg2,avg9,avg6,avg3)
+
+)
+
+ggplot() + 
+  xlim(-0.83, 0.83)+ xlab('') +
+  ylim(1.5, 3.5) + ylab('') +
+  geom_rect(data = strike_zone,
+             aes(xmin = x1, xmax = x2, ymin = y2, ymax = y1, fill = z), color = 'grey20') + 
+  geom_text(data = strike_zone, label = avg1, x = -0.55, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = paste(num1, 'N'), x = -0.55, y=3.0, size=6) +
+  geom_text(data = strike_zone, label = avg2, x = 0, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = paste(num2, 'N'), x = 0, y=3.0, size=6) +
+  geom_text(data = strike_zone, label = avg3, x = 0.55, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = paste(num3, 'N'), x = 0.55, y=3.0, size=6) +
+  geom_text(data = strike_zone, label = avg4, x = -0.55, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = paste(num4, 'N'), x = -0.55, y=2.30, size=6) +
+  geom_text(data = strike_zone, label = avg5, x = 0, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = paste(num5, 'N'), x = 0, y=2.30, size=6) +
+  geom_text(data = strike_zone, label = avg6, x = 0.55, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = paste(num6, 'N'), x = 0.55, y=2.30, size=6) +
+  geom_text(data = strike_zone, label = avg7, x = -0.55, y=1.85, size=8) +
+  #geom_text(data = strike_zone, label = paste(num7, 'N'), x = -0.55, y=1.65, size=6) +
+  geom_text(data = strike_zone, label = avg8, x = 0, y=1.85, size=8) +
+  #geom_text(data = strike_zone, label = paste(num8, 'N'), x = 0, y=1.65, size=6) +
+  geom_text(data = strike_zone, label = avg9, x = 0.55, y=1.85, size=8) +
+  #geom_text(data = strike_zone, label = paste(num9, 'N'), x = 0.55, y=1.65, size=6) +
+  labs(x = "Pitch Offset (ft.)", y = "Pitch Height (ft.)", color = " ", title = "Average Heat Map", fill='Average ') + 
+  scale_fill_gradient2(
+    midpoint = round((avg1+avg2+avg3+avg4+avg5+avg6+avg7+avg8+avg9)/9, 3),
+                      low = "skyblue",
+                      mid = "white",
+                      high = "brown1",
+                      guide = "colorbar")
+
+```
+
+
+Average per Swing Heat Map 
+---
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#Average (on balls in play?)
+
+#avg
+avg <- function(dataframe) {
+
+HBP <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('hit by pitch', sentence)) {
+    HBP <- HBP + 1
+  }
+}
+
+BB <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('walk', sentence)) {
+    BB <- BB + 1
+  }
+}
+  
+  
+single <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('singles', sentence)) {
+    single <- single + 1
+  }
+}
+
+double <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('doubles', sentence)) {
+    double <- double + 1
+  }
+}
+
+triple <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('triples', sentence)) {
+    triple <- triple + 1
+  }
+}
+
+homer <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('homers', sentence)) {
+    homer <- homer + 1
+  }
+}
+
+SF <- 0
+for(sentence in dataframe[,'des']){
+  if(grepl('sacrifice', sentence)) {
+    SF <- SF + 1
+  }
+}
+
+AVG <- (single + double + triple + homer)/(length(dataframe[,'des']) - SF - BB - HBP)
+
+AVG <- round(AVG, digits=3)
+
+return(AVG)
+
+}
+
+hit <- x2022
+
+hit<-hit[!(hit$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+#top left
+average1 <- hit %>% filter(plate_x < -0.277, plate_z > 2.83)
+avg1 <- avg(average1)
+
+
+#top middle
+average2 <- hit %>% filter(plate_x > -0.277, plate_x < 0.277, plate_z > 2.83)
+avg2 <- avg(average2)
+
+#top right
+average3 <- hit %>% filter(plate_x > 0.277, plate_z > 2.83)
+avg3 <- avg(average3)
+
+#middle left
+average4 <- hit %>% filter(plate_x < -0.277, plate_z < 2.83, plate_z > 2.167)
+avg4 <- avg(average4)
+
+#middle middle
+average5 <- hit %>% filter(plate_x > -0.277, plate_x < 0.277, plate_z < 2.83, plate_z > 2.167)
+avg5 <- avg(average5)
+
+#middle right
+average6 <- hit %>% filter(plate_x > 0.277, plate_z < 2.83, plate_z > 2.167)
+avg6 <- avg(average6)
+
+#bottom left
+average7 <- hit %>% filter(plate_x < -0.277, plate_z < 2.167)
+avg7 <- avg(average7)
+
+#bottom middle
+average8 <- hit %>% filter(plate_x > -0.277, plate_x < 0.277, plate_z < 2.167)
+avg8 <- avg(average8)
+
+#bottom right
+average9 <- hit %>% filter(plate_x > 0.277, plate_z < 2.167)
+avg9 <- avg(average9)
+
+
+
+strike_zone <- data.frame(
+  x1 = c(-0.83, -0.83, -0.83, -0.277, -0.277, -0.277, 0.277, 0.277, 0.277),
+  x2 = c(-0.277, -0.277, -0.277, 0.277, 0.277, 0.277, 0.83, 0.83, 0.83),
+  y1 = c(1.5, 2.167, 2.83, 1.5, 2.167, 2.83, 1.5, 2.167, 2.83),
+  y2 = c(2.167, 2.83, 3.5, 2.167, 2.83, 3.5, 2.167, 2.83, 3.5),
+  z = c(avg7,avg4,avg1,avg8,avg5,avg2,avg9,avg6,avg3)
+
+)
+
+ggplot() + 
+  xlim(-0.83, 0.83)+ xlab('') +
+  ylim(1.5, 3.5) + ylab('') +
+  geom_rect(data = strike_zone,
+             aes(xmin = x1, xmax = x2, ymin = y2, ymax = y1, fill = z), color = 'grey20') + 
+  geom_text(data = strike_zone, label = avg1, x = -0.55, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = paste(num1, 'N'), x = -0.55, y=3.0, size=6) +
+  geom_text(data = strike_zone, label = avg2, x = 0, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = paste(num2, 'N'), x = 0, y=3.0, size=6) +
+  geom_text(data = strike_zone, label = avg3, x = 0.55, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = paste(num3, 'N'), x = 0.55, y=3.0, size=6) +
+  geom_text(data = strike_zone, label = avg4, x = -0.55, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = paste(num4, 'N'), x = -0.55, y=2.30, size=6) +
+  geom_text(data = strike_zone, label = avg5, x = 0, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = paste(num5, 'N'), x = 0, y=2.30, size=6) +
+  geom_text(data = strike_zone, label = avg6, x = 0.55, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = paste(num6, 'N'), x = 0.55, y=2.30, size=6) +
+  geom_text(data = strike_zone, label = avg7, x = -0.55, y=1.85, size=8) +
+  #geom_text(data = strike_zone, label = paste(num7, 'N'), x = -0.55, y=1.65, size=6) +
+  geom_text(data = strike_zone, label = avg8, x = 0, y=1.85, size=8) +
+  #geom_text(data = strike_zone, label = paste(num8, 'N'), x = 0, y=1.65, size=6) +
+  geom_text(data = strike_zone, label = avg9, x = 0.55, y=1.85, size=8) +
+  #geom_text(data = strike_zone, label = paste(num9, 'N'), x = 0.55, y=1.65, size=6) +
+  labs(x = "Pitch Offset (ft.)", y = "Pitch Height (ft.)", color = " ", title = "Average Heat Map", fill='Average ') + 
+  scale_fill_gradient2(
+    midpoint = round((avg1+avg2+avg3+avg4+avg5+avg6+avg7+avg8+avg9)/9, 3),
+                      low = "skyblue",
+                      mid = "white",
+                      high = "brown1",
+                      guide = "colorbar")
+
+```
+
+Spray Chart
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+
+where <- x2022 %>% filter(hc_x != 'NA', hc_y != 'NA', description == 'hit_into_play') 
+
+where$events[where$events %in% c('single', 'double', 'triple', 'home_run')] <- 'Hit'
+
+where$events[(where$events %in% c('field_out', 'field_error', 'grounded_into_double_play', 'force_out', 'sac_fly', 'fielders_choice'))] <- 'Out'
+
+pull <- 0
+middle <- 0
+opp <- 0
+
+for(i in 1:length(where[,'events'])) {
+  if ( ((2.5*(198.27-where$hc_y[i]))/(2.5*(where$hc_x[i]-125.42))) > 3.732) {
+    middle <- middle + 1
+  }
+  if ( ((2.5*(198.27-where$hc_y[i]))/(2.5*(where$hc_x[i]-125.42))) < -3.732) {
+    middle <- middle + 1
+  }
+  if ( ((2.5*(198.27-where$hc_y[i]))/(2.5*(where$hc_x[i]-125.42))) < 3.732 & ((2.5*(198.27-where$hc_y[i]))/(2.5*(where$hc_x[i]-125.42))) > 0) {
+    opp <- opp + 1
+  }
+  if ( ((2.5*(198.27-where$hc_y[i]))/(2.5*(where$hc_x[i]-125.42))) > -3.732 & ((2.5*(198.27-where$hc_y[i]))/(2.5*(where$hc_x[i]-125.42))) < 0) {
+    pull <- pull + 1
+  }
+}
+
+center <- paste(toString(round((middle/length(where[,'events'])),3)*100), '%', sep='')
+left <- paste(toString(round((pull/length(where[,'events'])),3)*100), '%', sep='')
+right <- paste(toString(round((opp/length(where[,'events'])),3)*100), '%', sep='')
+
+
+ggplot(where, aes(x = 2.5*(hc_x-125.42), y = 2.5*(198.27-hc_y), color = events)) +
+      labs(x = '', y = '', color = "On Base", title = "Spray Chart") + geom_segment(aes(x = 0, y = 0, xend = 300, yend = 300), size = 1, color = "black") + geom_segment(aes(x = 0, y = 0, xend = -300, yend = 300), size = 1, color = "black") + geom_segment(aes(x=60, y=60, xend=66, yend=66), size = 5, color = 'black') + geom_segment(aes(x=-60, y=60, xend=-66, yend=66), size = 5, color = 'black') + geom_segment(aes(x=-8, y=124, xend=8, yend=124), size = 3, color = 'black') +
+  geom_text(data = where, label = left, x = -250, y=380, size=8, color='black') + 
+  geom_text(data = where, label = center, x = 0, y=400, size=8, color='black') +
+  geom_text(data = where, label = right, x = 250, y=380, size=8, color='black') +
+       geom_point(size = 2, na.rm = TRUE) + theme(legend.text = element_text(size = 10))
+
+```
+
+
+Success Against Speed Plot
+---
+```{r, echo=FALSE, warning=FALSE, fig.height = 6.3, fig.width=7.5, message=FALSE}
+#whiff plot
+#multiplying plate_x by -1 flips from catcher to pitcher perspective
+swinging <- x2022
+swinging <- swinging %>% filter(release_speed >= 95)
+
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+ggplot(swinging, aes(x = plate_x, y = plate_z, shape = 'Contact')) +
+      xlim(-3,3) + ylim(0,5) + labs(x = 'Pitch Offset (ft.)', y = 'Pitch Height (ft.)', color = "Pitch Type", title = "Strikezone 95+ Plot", shape = 'Whiff or Contact') +
+      geom_rect(aes(xmin = -0.83, xmax = 0.83, ymin = 1.5, ymax = 3.5), alpha = 0, size = 1, color = "black") +
+       geom_point(aes(shape=description, color=pitch_name),size = 4, na.rm = TRUE) + theme_bw() + theme(legend.text = element_text(size = 10))
+ #+ theme(axis.title = element_text(size = 13)))
+       #theme(legend.position = "bottom", legend.text = element_text(size = 12), axis.title = element_blank())
+
+```
+
+#### Speed Results
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+swinging <- x2022
+
+swinging <- swinging %>% filter(release_speed >= 95)
+
+swinging$description[swinging$description %in% c('swinging_strike', 'swinging_strike_blocked',"missed_bunt") ] <- 'Whiff'
+
+swinging$description[swinging$description %in% c( "foul", "bunt_foul_tip", "foul_bunt", "foul_tip", "hit_into_play", "hit_into_play_no_out","hit_into_play_score")] <- 'Contact'
+
+swinging<-swinging[!(swinging$description %in% c('ball', 'blocked_ball', 'called_strike', 'hit_by_pitch')),]
+
+table <- swinging %>%
+  group_by('Pitch' = pitch_name) %>%
+  summarize('Whiffs' = sum(description == 'Whiff'),
+            'Contact' = sum(description == 'Contact'),
+            'Contact%' = round(sum(description == 'Contact')/sum(description %in% c('Contact', 'Whiff')),3)*100,
+            'Hit%' = round(sum(events %in% c('single', 'double', 'triple', 'home_run'))/sum(description %in% c('Contact', 'Whiff')), 3)*100)
+kable(table, caption = 'Contact Data')
+
+```
+
+
+
+# Where You've Been Pitched Heat Maps
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#Heat map function 
+Heatmap_zone <- function(data, title) {
+  require(ggplot2)
+  require(dplyr)
+  require(knitr)
+
+
+#top left
+num1 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) { 
+  if(nrow(data) == 0)
+  {
+    num1 = 0
+  } else{
+  if(data$plate_x[i] < -0.277 & data$plate_z[i] > 2.83) {
+    num1 <- num1 + 1
+  }
+  }
+}
+
+#top middle
+num2 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) {  
+  if(nrow(data) == 0)
+  {
+    num2 = 0
+  } else{
+  if(data$plate_x[i] > -0.277 & data$plate_x[i] < 0.277 & data$plate_z[i] > 2.83) {
+    num2 <- num2 + 1
+  }
+  }
+}
+
+#top data
+num3 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) {  
+  if(nrow(data) == 0)
+  {
+    num3 = 0
+  } else{
+  if(data$plate_x[i] > 0.277 & data$plate_z[i] > 2.83) {
+    num3 <- num3 + 1
+  }
+  }
+}
+
+
+#middle left
+num4 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) { 
+  if(nrow(data) == 0)
+  {
+    num4 = 0
+  } else{
+  if(data$plate_x[i] < -0.277 & data$plate_z[i] < 2.83 & data$plate_z[i] > 2.167) {
+    num4 <- num4 + 1
+  }
+  }
+}
+
+
+#middle middle
+num5 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) { 
+  if(nrow(data) == 0)
+  {
+    num5 = 0
+  } else{
+  if(data$plate_x[i] > -0.277 & data$plate_x[i] < 0.277 & data$plate_z[i] < 2.83 & data$plate_z[i] > 2.167) {
+    num5 <- num5 + 1
+  }
+  }
+}
+
+
+#middle data
+num6 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) { 
+  if(nrow(data) == 0)
+  {
+    num6 = 0
+  } else{
+  if(data$plate_x[i] > 0.277 & data$plate_z[i] < 2.83 & data$plate_z[i] > 2.167) {
+    num6 <- num6 + 1
+  }
+  }
+}
+
+#bottom left
+num7 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) { 
+  if(nrow(data) == 0)
+  {
+    num7 = 0
+  } else{
+  if(data$plate_x[i] < -0.277 & data$plate_z[i] < 2.167) {
+    num7 <- num7 + 1 
+  }
+  }
+}
+
+
+
+#bottom middle
+num8 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) {
+  if(nrow(data) == 0)
+  {
+    num8 = 0
+  } else{
+  if(data$plate_x[i] > -0.277 & data$plate_x[i] < 0.277 & data$plate_z[i] < 2.167) {
+    num8 <- num8 + 1
+  }
+  }
+}
+
+#bottom data
+num9 <- 0
+
+for(i in 1:length(data[,'pitch_type'])) { 
+  if(nrow(data) == 0)
+  {
+    num9 = 0
+  } else{
+  if(data$plate_x[i] > 0.277 & data$plate_z[i] < 2.167) {
+    num9 <- num9 + 1
+  }
+  }
+}
+
+strike_zone <- data.frame(
+  x1 = c(-0.83, -0.83, -0.83, -0.277, -0.277, -0.277, 0.277, 0.277, 0.277),
+  x2 = c(-0.277, -0.277, -0.277, 0.277, 0.277, 0.277, 0.83, 0.83, 0.83),
+  y1 = c(1.5, 2.167, 2.83, 1.5, 2.167, 2.83, 1.5, 2.167, 2.83),
+  y2 = c(2.167, 2.83, 3.5, 2.167, 2.83, 3.5, 2.167, 2.83, 3.5),
+  z = c(num7,num4,num1,num8,num5,num2,num9,num6, num3)
+  
+)
+
+ggplot() + 
+  xlim(-0.83, 0.83)+ xlab('') +
+  ylim(1.5, 3.5) + ylab('') +
+  geom_rect(data = strike_zone,
+            aes(xmin = x1, xmax = x2, ymin = y2, ymax = y1, fill = z), color = 'grey20') + 
+  #geom_text(data = strike_zone, label = round(Velo1,2), x = -0.55, y=3.25, size=8) +
+  geom_text(data = strike_zone, label = paste(num1, 'N'), x = -0.55, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo2,2), x = 0, y=3.25, size=8) +
+  geom_text(data = strike_zone, label = paste(num2, 'N'), x = 0, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo3,2), x = 0.55, y=3.25, size=8) +
+  geom_text(data = strike_zone, label = paste(num3, 'N'), x = 0.55, y=3.18, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo4,2), x = -0.55, y=2.55, size=8) +
+  geom_text(data = strike_zone, label = paste(num4, 'N'), x = -0.55, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo5,2), x = 0, y=2.55, size=8) +
+  geom_text(data = strike_zone, label = paste(num5, 'N'), x = 0, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo6,2), x = 0.55, y=2.55, size=8) +
+  geom_text(data = strike_zone, label = paste(num6, 'N'), x = 0.55, y=2.51, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo7,2), x = -0.55, y=1.90, size=8) +
+  geom_text(data = strike_zone, label = paste(num7, 'N'), x = -0.55, y=1.85, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo8,2), x = 0, y=1.90, size=8) +
+  geom_text(data = strike_zone, label = paste(num8, 'N'), x = 0, y=1.855, size=8) +
+  #geom_text(data = strike_zone, label = round(Velo9,2), x = 0.55, y=1.90, size=8) +
+  geom_text(data = strike_zone, label = paste(num9, 'N'), x = 0.55, y=1.85, size=8) +
+  labs(x = "Pitch Offset (ft.)", y = "Pitch Height (ft.)", color = " ", title = title, fill='Number of Pitches') + theme(plot.title = element_text(size = 22)) + theme(legend.text = element_text(size = 15)) + theme(axis.title = element_text(size = 18)) +
+  scale_fill_distiller(palette = "Spectral")
+}
+
+```
+
+Overall
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter( balls == '0', strikes == '0') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '0')
+
+Right2 <- x2022 %>% filter( balls == '1', strikes == '1')
+
+Right3 <- x2022 %>% filter( balls == '2', strikes == '2')
+
+Right4 <- x2022 %>% filter( balls == '3', strikes == '2') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '1', strikes == '0')
+
+Right2 <- x2022 %>% filter( balls == '2', strikes == '0')
+
+Right3 <- x2022 %>% filter( balls == '3', strikes == '0')
+
+Right4 <- x2022 %>% filter( balls == '2', strikes == '1')
+
+Right5 <- x2022 %>% filter( balls == '3', strikes == '1')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '1')
+
+Right2 <- x2022 %>% filter( balls == '0', strikes == '2')
+
+Right3 <- x2022 %>% filter( balls == '1', strikes == '2')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+RHP - Overall
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter( balls == '0', strikes == '0', p_throws == 'R') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '0', p_throws == 'R')
+
+Right2 <- x2022 %>% filter( balls == '1', strikes == '1', p_throws == 'R')
+
+Right3 <- x2022 %>% filter( balls == '2', strikes == '2', p_throws == 'R')
+
+Right4 <- x2022 %>% filter( balls == '3', strikes == '2', p_throws == 'R') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '1', strikes == '0', p_throws == 'R')
+
+Right2 <- x2022 %>% filter( balls == '2', strikes == '0', p_throws == 'R')
+
+Right3 <- x2022 %>% filter( balls == '3', strikes == '0', p_throws == 'R')
+
+Right4 <- x2022 %>% filter( balls == '2', strikes == '1', p_throws == 'R')
+
+Right5 <- x2022 %>% filter( balls == '3', strikes == '1', p_throws == 'R')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '1', p_throws == 'R')
+
+Right2 <- x2022 %>% filter( balls == '0', strikes == '2', p_throws == 'R')
+
+Right3 <- x2022 %>% filter( balls == '1', strikes == '2', p_throws == 'R')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+
+LHP - Overall
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter( balls == '0', strikes == '0', p_throws == 'L') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '0', p_throws == 'L')
+
+Right2 <- x2022 %>% filter( balls == '1', strikes == '1', p_throws == 'L')
+
+Right3 <- x2022 %>% filter( balls == '2', strikes == '2', p_throws == 'L')
+
+Right4 <- x2022 %>% filter( balls == '3', strikes == '2', p_throws == 'L') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '1', strikes == '0', p_throws == 'L')
+
+Right2 <- x2022 %>% filter( balls == '2', strikes == '0', p_throws == 'L')
+
+Right3 <- x2022 %>% filter( balls == '3', strikes == '0', p_throws == 'L')
+
+Right4 <- x2022 %>% filter( balls == '2', strikes == '1', p_throws == 'L')
+
+Right5 <- x2022 %>% filter( balls == '3', strikes == '1', p_throws == 'L')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '1', p_throws == 'L')
+
+Right2 <- x2022 %>% filter( balls == '0', strikes == '2', p_throws == 'L')
+
+Right3 <- x2022 %>% filter( balls == '1', strikes == '2', p_throws == 'L')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+Fastballs
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'FF') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter( balls == '1', strikes == '1', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter( balls == '2', strikes == '2', pitch_type == 'FF')
+
+Right4 <- x2022 %>% filter( balls == '3', strikes == '2', pitch_type == 'FF') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '1', strikes == '0', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter( balls == '2', strikes == '0', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter( balls == '3', strikes == '0', pitch_type == 'FF')
+
+Right4 <- x2022 %>% filter( balls == '2', strikes == '1', pitch_type == 'FF')
+
+Right5 <- x2022 %>% filter( balls == '3', strikes == '1', pitch_type == 'FF')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '1', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter( balls == '0', strikes == '2', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter( balls == '1', strikes == '2', pitch_type == 'FF')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+
+RHP - Fastballs
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'FF') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '1', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '2', pitch_type == 'FF')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '2', pitch_type == 'FF') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '0', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '0', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '0', pitch_type == 'FF')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '1', pitch_type == 'FF')
+
+Right5 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '1', pitch_type == 'FF')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '1', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '2', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '2', pitch_type == 'FF')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+LHP - Fastballs
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'FF') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '1', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '2', pitch_type == 'FF')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '2', pitch_type == 'FF') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '0', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '0', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '0', pitch_type == 'FF')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '1', pitch_type == 'FF')
+
+Right5 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '1', pitch_type == 'FF')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '1', pitch_type == 'FF')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '2', pitch_type == 'FF')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '2', pitch_type == 'FF')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+
+
+
+
+Slider
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'SL') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter( balls == '1', strikes == '1', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter( balls == '2', strikes == '2', pitch_type == 'SL')
+
+Right4 <- x2022 %>% filter( balls == '3', strikes == '2', pitch_type == 'SL') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '1', strikes == '0', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter( balls == '2', strikes == '0', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter( balls == '3', strikes == '0', pitch_type == 'SL')
+
+Right4 <- x2022 %>% filter( balls == '2', strikes == '1', pitch_type == 'SL')
+
+Right5 <- x2022 %>% filter( balls == '3', strikes == '1', pitch_type == 'SL')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '1', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter( balls == '0', strikes == '2', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter( balls == '1', strikes == '2', pitch_type == 'SL')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+
+RHP - Slider
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'SL') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '1', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '2', pitch_type == 'SL')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '2', pitch_type == 'SL') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '0', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '0', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '0', pitch_type == 'SL')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '1', pitch_type == 'SL')
+
+Right5 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '1', pitch_type == 'SL')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '1', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '2', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '2', pitch_type == 'SL')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+LHP - Slider
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'SL') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '1', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '2', pitch_type == 'SL')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '2', pitch_type == 'SL') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '0', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '0', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '0', pitch_type == 'SL')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '1', pitch_type == 'SL')
+
+Right5 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '1', pitch_type == 'SL')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '1', pitch_type == 'SL')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '2', pitch_type == 'SL')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '2', pitch_type == 'SL')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+
+
+
+Curveball
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'CU') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter( balls == '1', strikes == '1', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter( balls == '2', strikes == '2', pitch_type == 'CU')
+
+Right4 <- x2022 %>% filter( balls == '3', strikes == '2', pitch_type == 'CU') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '1', strikes == '0', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter( balls == '2', strikes == '0', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter( balls == '3', strikes == '0', pitch_type == 'CU')
+
+Right4 <- x2022 %>% filter( balls == '2', strikes == '1', pitch_type == 'CU')
+
+Right5 <- x2022 %>% filter( balls == '3', strikes == '1', pitch_type == 'CU')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '1', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter( balls == '0', strikes == '2', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter( balls == '1', strikes == '2', pitch_type == 'CU')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+
+RHP - Curveball
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'CU') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '1', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '2', pitch_type == 'CU')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '2', pitch_type == 'CU') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '0', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '0', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '0', pitch_type == 'CU')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '1', pitch_type == 'CU')
+
+Right5 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '1', pitch_type == 'CU')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '1', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '2', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '2', pitch_type == 'CU')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+LHP - Curveball
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'CU') 
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '1', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '2', pitch_type == 'CU')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '2', pitch_type == 'CU') 
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '0', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '0', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '0', pitch_type == 'CU')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '1', pitch_type == 'CU')
+
+Right5 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '1', pitch_type == 'CU')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '1', pitch_type == 'CU')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '2', pitch_type == 'CU')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '2', pitch_type == 'CU')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+
+
+
+
+Changeup
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'CH')
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '0', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter( balls == '1', strikes == '1', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter( balls == '2', strikes == '2', pitch_type == 'CH')
+
+Right4 <- x2022 %>% filter( balls == '3', strikes == '2', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '1', strikes == '0', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter( balls == '2', strikes == '0', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter( balls == '3', strikes == '0', pitch_type == 'CH')
+
+Right4 <- x2022 %>% filter( balls == '2', strikes == '1', pitch_type == 'CH')
+
+Right5 <- x2022 %>% filter( balls == '3', strikes == '1', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter( balls == '0', strikes == '1', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter( balls == '0', strikes == '2', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter( balls == '1', strikes == '2', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+RHP - Changeup
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'CH')
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '0', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '1', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '2', pitch_type == 'CH')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '2', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '0', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '0', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '0', pitch_type == 'CH')
+
+Right4 <- x2022 %>% filter(p_throws == 'R', balls == '2', strikes == '1', pitch_type == 'CH')
+
+Right5 <- x2022 %>% filter(p_throws == 'R', balls == '3', strikes == '1', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '1', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter(p_throws == 'R', balls == '0', strikes == '2', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter(p_throws == 'R', balls == '1', strikes == '2', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+LHP - Changeup
+---
+```{r, echo=FALSE, warning=FALSE,  fig.dim = c(12, 10), message=FALSE}
+#RHH, 0-0, Fastballs
+#dim = c(10, 10) - for it to be longer
+Right <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'CH')
+p1 <- Heatmap_zone(Right, "0-0")
+
+#RHH, Even in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '0', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '1', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '2', pitch_type == 'CH')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '2', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3, Right4)
+
+p2 <- Heatmap_zone(Right, "Even Count")
+
+#RHH, behind in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '0', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '0', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '0', pitch_type == 'CH')
+
+Right4 <- x2022 %>% filter(p_throws == 'L', balls == '2', strikes == '1', pitch_type == 'CH')
+
+Right5 <- x2022 %>% filter(p_throws == 'L', balls == '3', strikes == '1', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3, Right4, Right5)
+
+p3<- Heatmap_zone(Right, 'Ahead')
+
+#RHH, ahead in the count, Fastballs
+Right1 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '1', pitch_type == 'CH')
+
+Right2 <- x2022 %>% filter(p_throws == 'L', balls == '0', strikes == '2', pitch_type == 'CH')
+
+Right3 <- x2022 %>% filter(p_throws == 'L', balls == '1', strikes == '2', pitch_type == 'CH')
+
+Right <- rbind(Right1, Right2, Right3)
+
+p4 <- Heatmap_zone(Right, 'Behind')
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
